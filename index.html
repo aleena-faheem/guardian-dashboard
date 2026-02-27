@@ -3,196 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Guardian Dashboard</title>
+    <title>Guardian Dashboard - Live</title>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
+    
     <style>
         :root { --bg: #0d0d0d; --card: #1c1c1e; --text: #fff; --sub: #8e8e93; --green: #00e676; --red: #ff3b30; --orange: #ff4500; --blue: #0a84ff; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-        
-        /* OVERLAY */
-        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .btn-start { padding: 15px 40px; font-size: 1.2rem; background: var(--orange); color: white; border: none; border-radius: 50px; cursor: pointer; font-weight: 600; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; transition: background 0.5s; }
         
         /* STATUS CARD */
-        .status-card { background: var(--card); border-radius: 24px; padding: 30px 20px; text-align: center; width: 100%; max-width: 400px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); transition: all 0.3s ease; }
+        .status-card { background: var(--card); border-radius: 24px; padding: 30px 20px; text-align: center; width: 100%; max-width: 400px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
         .icon-circle { width: 80px; height: 80px; margin: 0 auto 15px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.05); }
         .status-title { font-size: 2rem; font-weight: 900; margin: 0; letter-spacing: 1px; }
         .status-sub { color: var(--sub); margin-top: 8px; font-size: 1rem; }
         
         /* MAPS & BUTTONS */
-        #map-frame { width: 100%; height: 200px; border: none; border-radius: 15px; background: #333; margin-bottom: 15px; }
+        #map-frame { width: 100%; height: 250px; border: none; border-radius: 15px; background: #333; margin-bottom: 15px; }
         .btn-container { display: flex; gap: 10px; width: 100%; max-width: 400px; margin-bottom: 20px; }
-        .btn { flex: 1; padding: 15px; border-radius: 16px; text-align: center; font-weight: bold; font-size: 1rem; text-decoration: none; display: flex; justify-content: center; align-items: center; color: white; }
+        .btn { flex: 1; padding: 15px; border-radius: 16px; text-align: center; font-weight: bold; text-decoration: none; display: flex; justify-content: center; align-items: center; color: white; }
         .btn-emergency { background: linear-gradient(90deg, #ff4500, #ff2400); }
         .btn-map { background: var(--card); border: 1px solid #333; color: var(--blue); }
 
         /* DATA GRID */
-        .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 400px; margin-bottom: 20px; }
-        .data-card { background: var(--card); border-radius: 16px; padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 400px; }
+        .data-card { background: var(--card); border-radius: 16px; padding: 15px; display: flex; flex-direction: column; align-items: center; }
         .data-label { color: var(--sub); font-size: 0.8rem; margin-bottom: 5px; }
-        .data-value { font-size: 1.1rem; font-weight: bold; text-align: center;}
+        .data-value { font-size: 1.1rem; font-weight: bold; }
         
-        /* ACTIVITY LOG */
-        .log-card { background: var(--card); border-radius: 16px; padding: 20px; width: 100%; max-width: 400px; box-sizing: border-box; height: 180px; display: flex; flex-direction: column; margin-bottom: 20px;}
-        .log-header { font-size: 1rem; font-weight: bold; color: var(--sub); margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .log-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; scrollbar-width: thin; scrollbar-color: #444 transparent; }
-        .log-list::-webkit-scrollbar { width: 6px; } .log-list::-webkit-scrollbar-thumb { background-color: #444; border-radius: 10px; }
-        .log-item { display: flex; justify-content: space-between; padding: 8px 0; font-size: 0.9rem; border-bottom: 1px solid #2c2c2e; }
-        .log-time { color: var(--sub); font-size: 0.8rem; }
-        .log-secure { color: white; } .log-alert { color: var(--orange); }
-
-        /* ANIMATIONS & STATES */
-        body.safe .status-title { color: var(--green); }
-        body.safe .icon-circle { background: rgba(0, 230, 118, 0.1); }
-        body.safe svg { fill: var(--green); }
-        
+        /* EMERGENCY STATE */
+        body.emergency { background: #2a0000; }
+        body.emergency .status-card { border: 2px solid var(--red); animation: pulse 1s infinite; }
         body.emergency .status-title { color: var(--red); }
-        body.emergency .icon-circle { background: rgba(255, 59, 48, 0.2); }
-        body.emergency svg { fill: var(--red); }
-        body.emergency .status-card { animation: shake 0.5s infinite; border: 1px solid var(--red); }
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
-        svg { width: 40px; height: 40px; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4); } 70% { box-shadow: 0 0 0 20px rgba(255, 59, 48, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); } }
+        
+        svg { width: 40px; height: 40px; fill: var(--sub); }
+        body.safe .status-title { color: var(--green); }
+        body.safe svg { fill: var(--green); }
     </style>
 </head>
 <body class="safe">
 
-    <div id="overlay">
-        <h2 style="margin-bottom:10px;">Security System</h2>
-        <p style="color:#aaa; margin-bottom:20px;">Tap to connect and enable audio</p>
-        <button class="btn-start" onclick="initAudio()">Connect Dashboard</button>
-    </div>
-
     <div class="status-card">
         <div class="icon-circle" id="status-icon">
-            <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+            <svg viewBox="0 0 24 24" id="svg-icon"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
         </div>
-        <h1 class="status-title" id="main-status">SECURE</h1>
-        <p class="status-sub" id="sub-status">GPS Monitoring Active</p>
+        <h1 class="status-title" id="main-status">CONNECTING...</h1>
+        <p class="status-sub" id="sub-status">Waiting for Firebase Data</p>
     </div>
 
     <iframe id="map-frame" src=""></iframe>
 
     <div class="btn-container">
-        <a href="tel:911" class="btn btn-emergency">📞 Call SOS</a>
+        <a href="tel:112" class="btn btn-emergency">📞 Call SOS</a>
         <a href="#" target="_blank" class="btn btn-map" id="map-link">📍 Open in Maps</a>
     </div>
 
     <div class="grid-container">
-        <div class="data-card"><span class="data-label">Latitude</span><span class="data-value" id="val-lat">Searching...</span></div>
-        <div class="data-card"><span class="data-label">Longitude</span><span class="data-value" id="val-lng">Searching...</span></div>
-        <div class="data-card"><span class="data-label">Connection</span><span class="data-value" id="val-conn" style="color:var(--green);">Online</span></div>
-        <div class="data-card"><span class="data-label">Last Update</span><span class="data-value" id="val-time">--:--:--</span></div>
-    </div>
-
-    <div class="log-card">
-        <div class="log-header">Activity Log</div>
-        <ul class="log-list" id="log-list"></ul>
+        <div class="data-card"><span class="data-label">Latitude</span><span class="data-value" id="val-lat">---</span></div>
+        <div class="data-card"><span class="data-label">Longitude</span><span class="data-value" id="val-lng">---</span></div>
+        <div class="data-card"><span class="data-label">Status</span><span class="data-value" id="val-conn">Offline</span></div>
+        <div class="data-card"><span class="data-label">Last Sync</span><span class="data-value" id="val-time">--:--:--</span></div>
     </div>
 
     <script>
-        let audioCtx = null;
-        let isEmergency = false;
-        let alertInterval = null;
-        let lastLat = 0;
+        // --- 1. YOUR FIREBASE CONFIGURATION ---
+        // Get this from: Firebase Console > Project Settings > General > Your Apps
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            databaseURL: "YOUR_DATABASE_URL",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
 
-        function initAudio() {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            audioCtx = new AudioContext();
-            const source = audioCtx.createBufferSource();
-            source.buffer = audioCtx.createBuffer(1, 1, 22050);
-            source.connect(audioCtx.destination);
-            source.start(0);
-            document.getElementById('overlay').style.display = 'none';
-            addLog("System Connected via Web", "secure");
-        }
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
 
-        function playBeep() {
-            if (!audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.15);
-        }
+        // --- 2. LIVE DATA LISTENER ---
+        // This listens to the "/status" path in your Realtime Database
+        db.ref('status').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                updateDashboard(data);
+            }
+        }, (error) => {
+            console.error("Firebase Error:", error);
+            document.getElementById('val-conn').innerText = "Auth Error";
+        });
 
-        function speak(text) {
-            if ('speechSynthesis' in window) {
-                const u = new SpeechSynthesisUtterance(text);
-                window.speechSynthesis.speak(u);
+        function updateDashboard(data) {
+            // Update Text Fields
+            document.getElementById('val-lat').innerText = data.lat ? data.lat.toFixed(5) : "0.000";
+            document.getElementById('val-lng').innerText = data.lng ? data.lng.toFixed(5) : "0.000";
+            document.getElementById('val-time').innerText = new Date().toLocaleTimeString();
+            document.getElementById('val-conn').innerText = "Online";
+            document.getElementById('val-conn').style.color = "var(--green)";
+
+            // Update Map Links
+            const lat = data.lat;
+            const lng = data.lng;
+            document.getElementById('map-link').href = `https://www.google.com/maps?q=${lat},${lng}`;
+            
+            // Update Embedded Map (OpenStreetMap)
+            const offset = 0.005;
+            const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lng-offset},${lat-offset},${lng+offset},${lat+offset}&layer=mapnik&marker=${lat},${lng}`;
+            document.getElementById('map-frame').src = mapUrl;
+
+            // Handle SOS State
+            const body = document.body;
+            const title = document.getElementById('main-status');
+            const sub = document.getElementById('sub-status');
+            const iconPath = document.querySelector('#svg-icon path');
+
+            if (data.sos === 1) {
+                body.className = "emergency";
+                title.innerText = "SOS ACTIVE";
+                sub.innerText = "Emergency triggered from device!";
+                iconPath.setAttribute("d", "M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"); // Warning Triangle
+            } else {
+                body.className = "safe";
+                title.innerText = "SECURE";
+                sub.innerText = "Device monitoring active";
+                iconPath.setAttribute("d", "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"); // Shield Icon
             }
         }
-
-        function addLog(msg, type) {
-            const list = document.getElementById('log-list');
-            const item = document.createElement('li');
-            item.className = 'log-item';
-            let icon = type === 'alert' ? '⚠ ' : '✓ ';
-            let styleClass = type === 'alert' ? 'log-alert' : 'log-secure';
-            item.innerHTML = `<span class="${styleClass}">${icon}${msg}</span> <span class="log-time">${new Date().toLocaleTimeString()}</span>`;
-            list.prepend(item);
-        }
-
-        function update() {
-            document.getElementById('val-time').innerText = new Date().toLocaleTimeString();
-
-            fetch('/data').then(r => r.json()).then(data => {
-                document.getElementById('val-conn').innerText = "Online";
-                document.getElementById('val-conn').style.color = "#00e676";
-                
-                // --- MAP & GPS UPDATE LOGIC ---
-                if(data.lat !== 0 && data.lng !== 0) {
-                    document.getElementById('val-lat').innerText = data.lat.toFixed(5);
-                    document.getElementById('val-lng').innerText = data.lng.toFixed(5);
-                    document.getElementById('map-link').href = `https://www.google.com/maps?q=${data.lat},${data.lng}`;
-
-                    // Update Embedded Map only if location changes significantly to prevent flickering
-                    if (Math.abs(data.lat - lastLat) > 0.0001) {
-                        let offset = 0.005;
-                        let src = `https://www.openstreetmap.org/export/embed.html?bbox=${data.lng-offset},${data.lat-offset},${data.lng+offset},${data.lat+offset}&layer=mapnik&marker=${data.lat},${data.lng}`;
-                        document.getElementById('map-frame').src = src;
-                        lastLat = data.lat;
-                    }
-                }
-
-                // --- ALARM LOGIC ---
-                const body = document.body;
-                const title = document.getElementById('main-status');
-                const sub = document.getElementById('sub-status');
-                const icon = document.getElementById('status-icon');
-
-                if (data.sos === 1) {
-                    if (!isEmergency) {
-                        isEmergency = true;
-                        body.className = "emergency";
-                        title.innerText = "SOS ACTIVE";
-                        sub.innerText = "Alert messages sent to contacts!";
-                        icon.innerHTML = '<svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>';
-                        
-                        addLog("SOS Button Triggered", "alert");
-                        speak("Emergency Alert. SOS Button Pressed.");
-                        if (!alertInterval) alertInterval = setInterval(playBeep, 500);
-                        if(navigator.vibrate) navigator.vibrate([500, 200, 500]);
-                    }
-                } else {
-                    if (isEmergency) {
-                        isEmergency = false;
-                        body.className = "safe";
-                        title.innerText = "SECURE";
-                        sub.innerText = "GPS Monitoring Active";
-                        icon.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>';
-                        
-                        addLog("System Secured", "secure");
-                        clearInterval(alertInterval); alertInterval = null;
-                    }
-                }
-            }).catch(e => {
-                document.getElementById('val-conn').innerText = "Offline";
-                document.getElementById('val-conn').style.color = "#555";
-            });
-        }
-        setInterval(update, 1000);
     </script>
 </body>
 </html>
